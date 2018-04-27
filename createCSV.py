@@ -10,12 +10,13 @@ for q in xrange(numOfScn): #number of scenes
     q = q+1
     scnName.append(os.path.join("sc"+'%03d'%q))
 
-outputFile = os.path.join("D:\\"+projName+"_"+"tacticData"+".csv")
+outputFileA = os.path.join("D:\\"+"proxy"+".csv")
 
 keyInList = []
 regScnList = []
+header = ["Scene","Shot"]
 
-with open(outputFile,'wb') as g:
+with open(outputFileA,'wb') as g:
     fieldnames = ["Scene","Shot"]
     wr = csv.DictWriter(g,fieldnames=fieldnames)
     wr.writeheader()
@@ -44,37 +45,30 @@ with open(outputFile,'wb') as g:
                 print "This scene number does not exist!"
                 continue
 
-        #print "key in sum:",sum(keyInList)
-        #print "registered sum :",sum(regScnList)
         if sum(keyInList) == sum(regScnList):
             keep_running = False
             break
         
 
+scnList=[]
+outputFileB = os.path.join("D:\\"+projName+"_"+"tacticData"+".csv") #YOUR OWN PATH
 
+with open(outputFileA,'r') as inf:
+    with open(outputFileB,'wb') as outf:
+        reader = inf.readlines()
+        for ind, j in enumerate(reader):
+            if ind == 0:
+                reader[ind] = "Scn,"+j
+            else:
+                if ind-1 >= len(scnName):
+                    reader[ind] = ","+j
+                else:
+                    reader[ind] = scnName[ind-1]+","+j
+                    
+            outf.write(reader[ind])
 
-##with open(outputFile,'r') as inf:
-##    reader = inf.read()
-##    for j in scnName:
-##        
-##        inf.write(output)
+os.remove(outputFileA)
+    
+    
         
-##    for lines in inf:
-##        print lines
-##    reader = csv.DictReader(inf)
 
-##        for ind, row in enumerate(reader):
-##            if ind == 0:
-##                pass
-##            elif ind == 1:
-##                pass
-##            else:
-##                row = row + ['Scn']
-##                print row
-##            print row
-            
-##            writefile.writerow({
-##                header[2]:k[ind]
-##                })
-
-        
