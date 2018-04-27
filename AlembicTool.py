@@ -2,6 +2,10 @@ import os
 import glob
 import maya.cmds as cmds
 
+'''
+Define Maya File Rule Entry (abcOut and shdSavePath) inside Project Window or workspace.mel before using!
+'''
+
 full_dir = cmds.workspace(fileRuleEntry="abcOut").replace("/","\\")
 scnList = glob.glob(full_dir+'\\'+'sc'+'*')
 
