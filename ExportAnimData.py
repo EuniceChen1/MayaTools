@@ -27,8 +27,7 @@ for i in namespaceList:
                     for obj in objList:
                         animCurveObj.append(obj.split(".")[0])
                         
-                    for m in connList:
-                        animCurveList.append(m)
+                    animCurveList = connList
 
                     for ind,q in enumerate(animCurveObj):
                         
