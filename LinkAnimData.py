@@ -7,9 +7,6 @@ for a in nsInfo:
     else:
         namespaceList.append(a)
         
-aniCurveList=[]
-animCurveObj=[]
-
 for i in namespaceList:            
     for aniCurve in cmds.ls(type="animCurve"):
         if("animDest" not in cmds.listAttr(aniCurve)):
@@ -22,3 +19,7 @@ for i in namespaceList:
                 cmds.connectAttr(aniCurve+".output",cmds.getAttr("%s.animDest"%aniCurve), f=1)
             except:
                 pass
+    cmds.select(aniCurve)
+    startFrame = cmds.keyframe(q=1)[0]
+    endFrame = cmds.keyframe(q=1)[-1]
+cmds.playbackOptions(min=startFrame,max=endFrame)
