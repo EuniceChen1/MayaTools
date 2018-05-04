@@ -230,6 +230,33 @@ def batchAsset(*n):
             
             cmds.file(location+"/"+item,reference=1,namespace = os.path.splitext(item)[0])
             
+        #Link Animation Data and Rig File
+        nsInfo = cmds.namespaceInfo(lon=1,r=1)
+        namespaceList=[]
+        for a in nsInfo:
+            if a == 'UI' or a == 'shared':
+                continue
+            else:
+                namespaceList.append(a)
+            
+        for k in namespaceList:            
+            for aniCurve in cmds.ls(type="animCurve"):
+                if("animDest" not in cmds.listAttr(aniCurve)):
+                    continue
+                animDestNS = cmds.getAttr("%s.animDest"%aniCurve).split(":")[0]
+                if animDestNS == None:
+                    continue
+                if animDestNS == k:
+                    try:
+                        cmds.connectAttr(aniCurve+".output",cmds.getAttr("%s.animDest"%aniCurve), f=1)
+                    except:
+                        pass
+            #Read Animation End Frame
+            cmds.select(aniCurve)
+            startFrame = cmds.keyframe(q=1)[0]
+            endFrame = cmds.keyframe(q=1)[-1]
+        cmds.playbackOptions(min=startFrame,max=endFrame)
+        
         for shd in listShd:
             for shader in shaders:
                 if shd.split(".")[0].split("_shd")[0] in shader and not cmds.namespace(q=1,ex=1):
