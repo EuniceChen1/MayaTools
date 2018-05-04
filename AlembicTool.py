@@ -191,7 +191,7 @@ def searchAsset(prompt = 0,search=0):# 0 = Reference , 1 = Import batchAsset()
     cmds.textScrollList("assetTextScroll",e=1,ann = "")
     allFiles = os.listdir(loc)
     for q in allFiles:
-        if os.path.splitext(q)[-1]==".abc" or os.path.splitext(q)[-1]==".fbx":
+        if os.path.splitext(q)[-1]==".abc" or os.path.splitext(q)[-1]==".ma" or os.path.splitext(q)[-1]==".mb":
 
             cmds.textScrollList("assetTextScroll",e=1,append = q)
     cmds.textScrollList("assetTextScroll",e=1,ann = loc)
@@ -215,7 +215,21 @@ def batchAsset(*n):
         for item in selectedItem:
             splitSelectedItem = item.split(".")[0].split("_rig")[0]
             shaders.append(splitSelectedItem)
+            extension = item.split(".")[-1]
+            assetType = splitSelectedItem.split("_")[1]
+            
+            if extension == "mb" or extension == "ma":
+                if assetType == "c":
+                    assetPath = rigPath +"\\"+listRig[0]+"\\"+splitSelectedItem
+                    cmds.file(assetPath+"\\"+nspcRig+".ma",reference=1,namespace=nspcRig)
+                elif assetType == "p":
+                    assetPath = rigPath +"\\"+listRig[1]+"\\"+splitSelectedItem
+                    cmds.file(assetPath+"\\"+nspcRig+".ma",reference=1,namespace=nspcRig)
+                else:
+                    print "naming is wrong, asset not found!"
+            
             cmds.file(location+"/"+item,reference=1,namespace = os.path.splitext(item)[0])
+            
         for shd in listShd:
             for shader in shaders:
                 if shd.split(".")[0].split("_shd")[0] in shader and not cmds.namespace(q=1,ex=1):
@@ -324,7 +338,7 @@ def run():
     cmds.frameLayout("tagFrame",label = "Tag Creation",cll=1,w=299,parent ='fxMainLay' ,cl=True,cc=readjustWindow,ec=readjustWindow,bgc=(.5,0,0))
     cmds.rowColumnLayout('tagColLay',p='tagFrame',co=[(1,"both",5),(2,"both",5)],cw=[(1,300),(2,300)],rowOffset=[(1,"top",5),(4,"top",5)])
     cmds.optionMenu('tagOpMenu',parent = 'tagColLay',label = "Object Type:",w=100,ann = "Assign tag to selected objects.\ngeometry: objects will be render.\neyedart: object just to visible in viewport not render.\npolyHair: hair object for LOD purpose.\ncacheMesh: object to apply cache on it. Mostly for fx dept.\nprop_geometry: just for prop or object to be combine after cacheMesh is created.")#print "\"cmds.optionMenu('tagOpMenu',q=1,v=1)\""
-    menuItemList = ["geometry","sets",'camera',"eyedart","export_with_shd","hair/fur","cacheMesh","prop_geometry","cacheCurve"]
+    menuItemList = ["geometry",'camera',"export_with_shd","hair/fur","ctrl"]
     for item in menuItemList:
         cmds.menuItem(label = item,parent = 'tagOpMenu')
     cmds.separator("tagSepA",parent = 'tagColLay',h=10)
