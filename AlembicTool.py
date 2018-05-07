@@ -239,23 +239,25 @@ def batchAsset(*n):
             else:
                 namespaceList.append(a)
             
-        for k in namespaceList:            
-            for aniCurve in cmds.ls(type="animCurve"):
-                if("animDest" not in cmds.listAttr(aniCurve)):
-                    continue
-                animDestNS = cmds.getAttr("%s.animDest"%aniCurve).split(":")[0]
-                if animDestNS == None:
-                    continue
-                if animDestNS == k:
-                    try:
-                        cmds.connectAttr(aniCurve+".output",cmds.getAttr("%s.animDest"%aniCurve), f=1)
-                    except:
-                        pass
-            #Read Animation End Frame
-            cmds.select(aniCurve)
-            startFrame = cmds.keyframe(q=1)[0]
-            endFrame = cmds.keyframe(q=1)[-1]
-        cmds.playbackOptions(min=startFrame,max=endFrame)
+         animationCurve = cmds.ls(type="animCurve")
+        
+        if len(animationCurve) != 0:
+            for k in namespaceList:            
+                for aniCurve in animationCurve:
+                    if("animDest" not in cmds.listAttr(aniCurve)):
+                        continue
+                    animDestNS = cmds.getAttr("%s.animDest"%aniCurve).split(":")[0]
+                    if animDestNS == None:
+                        continue
+                    if animDestNS == k:
+                        try:
+                            cmds.connectAttr(aniCurve+".output",cmds.getAttr("%s.animDest"%aniCurve), f=1)
+                        except:
+                            pass
+                    cmds.select(aniCurve)
+                startFrame = cmds.keyframe(q=1)[0]
+                endFrame = cmds.keyframe(q=1)[-1]
+            cmds.playbackOptions(min=startFrame,max=endFrame)
         
         for shd in listShd:
             for shader in shaders:
