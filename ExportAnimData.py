@@ -52,7 +52,7 @@ for i in namespaceList:
                         animCurveObj.append(obj)
 
     for ind,curveObj in enumerate(animCurveObj):
-        dest = cmds.listConnections(q,d=1,c=0,p=1)[0]
+        dest = cmds.listConnections(curveObj,d=1,c=0,p=1)[0]
         
         if "animDest" not in cmds.listAttr(curveObj): #Create Extra Attribute
             cmds.addAttr(curveObj,longName="animDest",dataType="string",keyable=1)
