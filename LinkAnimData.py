@@ -19,7 +19,7 @@ for i in namespaceList:
                 cmds.connectAttr(aniCurve+".output",cmds.getAttr("%s.animDest"%aniCurve), f=1)
             except:
                 pass
-    cmds.select(aniCurve)
+        cmds.select(aniCurve)
     startFrame = cmds.keyframe(q=1)[0]
     endFrame = cmds.keyframe(q=1)[-1]
 cmds.playbackOptions(min=startFrame,max=endFrame)
