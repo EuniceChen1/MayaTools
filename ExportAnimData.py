@@ -86,17 +86,23 @@ def publishAnim():
         else:
             namespaceList.append(a)
 
-          
     transformList=[]
+    pConstraint=[]
     for nc in cmds.ls(type="nurbsCurve"):
         nctrans = cmds.listRelatives(nc, type="transform",p=1,f=1)[0]
         if "objType" in cmds.listAttr(nctrans):
             if cmds.getAttr("%s.objType"%nctrans) == "ctrl":              
                 transformList.append(nctrans)
+                if "blendParent1" in cmds.listAttr(nctrans):
+                    for const in cmds.listConnections(nctrans,type="constraint",d=1,s=0):
+                        if ":" not in const:
+                            pConstraint.append(const)
                 
         if len(transformList) == 0:
             continue
+
     cmds.bakeResults(transformList,sm=1,t=(int(cmds.playbackOptions(q=1,min=1)),int(cmds.playbackOptions(q=1,max=1))),sb=1,osr=1,rba=0,dic=1,pok=1,sac=0,ral=0,bol=0,mr=1,cp=0,s=0)
+    cmds.delete(pConstraint)
 
     start = time.time() 
     for i in namespaceList:
@@ -170,7 +176,7 @@ def publishAnim():
             continue        
         finalString = "AbcExport -j \"-frameRange %s %s -attr objType -attrPrefix rs -stripNamespaces -dataFormat ogawa -uvWrite -attrPrefix xgen -writeVisibility -worldSpace%s -file %s\"" %(minTime,maxTime,objString,abcOutPath+"/"+ns.split(":")[-1]+".abc")
         mel.eval(finalString)
-        
+
     objString = ''
     for cam in allCam:
         objString = ''
@@ -182,5 +188,13 @@ def publishAnim():
             continue
         finalString = "AbcExport -j \"-frameRange %s %s -attr objType -attrPrefix rs -attrPrefix rman -stripNamespaces -dataFormat ogawa -uvWrite -attrPrefix xgen -worldSpace%s -file %s\"" %(minTime,maxTime,objString,abcOutPath+"/"+transformNode.split(":")[-1]+"_cam.abc")
         mel.eval(finalString)
+        
+    publishBox = QtWidgets.QMessageBox()
+    publishBox.setIcon(QtWidgets.QMessageBox.Information)
+    publishBox.setWindowTitle("Information")
+    publishBox.setText("Your files have been published successfully!")
+    publishBox.setInformativeText("Please check them at their designated location.")
+    publishBox.exec_()
+    return
         
 publishAnim()
