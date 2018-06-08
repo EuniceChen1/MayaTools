@@ -1,3 +1,7 @@
+import os
+import maya.cmds as cmds
+from PySide2 import QtWidgets
+
 allNS= cmds.namespaceInfo(lon=1,r=1)
 defaultNS = ["UI","shared"]
 others = [ns for ns in allNS if ns not in defaultNS]
