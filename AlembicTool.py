@@ -2,48 +2,57 @@ import os
 import glob
 import maya.cmds as cmds
 
-'''
-Define Maya File Rule Entry (abcOut and shdSavePath) inside Project Window or workspace.mel before using!
-'''
-
 full_dir = cmds.workspace(fileRuleEntry="abcOut").replace("/","\\")
+sqList = glob.glob(full_dir+'\\'+'sq'+'*')
 scnList = glob.glob(full_dir+'\\'+'sc'+'*')
 
+def seqMenu(*n):
+    if len(sqList) != 0 :
+        cmds.optionMenu("seqMenu",e=1,dai=1)
+        for sequence in sqList:
+            sqCode = sequence.split("\\")[-1].split("q")[-1]
+            cmds.menuItem(label = sqCode, parent = 'seqMenu')
+        
 def sceneMenu(*n):
-    if len(scnList) != 0:
+    if len(scnList) == 0: #New directory convention
+        cmds.optionMenu("sceneMenu",e=1,dai=1)
+        if cmds.optionMenu("seqMenu",q=1,en=1):
+            querySeqMenu = cmds.optionMenu("seqMenu", q=1, v=1)
+            fullSeqList = full_dir+'\\'+'sq'+querySeqMenu
+            fullSeqList = os.listdir(fullSeqList)
+            
+        else:
+            cmds.optionMenu("sceneMenu",q=1,en=0)
+            
+        for scenes in fullSeqList:
+            scnCode = scenes.split("\\")[-1].split("c")[-1]
+            cmds.menuItem(label = scnCode, parent = 'sceneMenu')
+            
+    else: #Old directory convention
         cmds.optionMenu("sceneMenu",e=1,dai=1)
         for scenes in scnList:
             scnCode =  scenes.split("\\")[-1].split("c")[-1]
             cmds.menuItem(label = scnCode, parent = 'sceneMenu')
-    
             
-def shotMenu(*n):    
+def shotMenu(*n):
     cmds.optionMenu("shotsMenu",e=1,dai=1)
-    if cmds.optionMenu("sceneMenu", q=1, en=1):
-        queryScnMenu = cmds.optionMenu("sceneMenu", q=1, v=1)
-        fullSceneList = full_dir+'\\'+'sc'+queryScnMenu
+    
+    if cmds.optionMenu("seqMenu",q=1,en=1): #New directory ocnvention (sequence is enabled)
+        querySeqMenu = cmds.optionMenu("seqMenu", q=1, v=1)
+        queryScnMenu = cmds.optionMenu("sceneMenu", q=1, v=1) 
+        fullSceneList = full_dir+'\\'+'sq'+querySeqMenu+'\\'+'sc'+queryScnMenu
         fullSceneList = os.listdir(fullSceneList)
         
     else:
-        fullSceneList = glob.glob(full_dir+'\\'+'sh'+'*')
-
+        queryScnMenu = cmds.optionMenu("sceneMenu", q=1, v=1)
+        fullSceneList = full_dir+'\\'+'sc'+queryScnMenu
+        fullSceneList = os.listdir(fullSceneList)
+    
     for files in fullSceneList:
-            shtCode = files.split("\\")[-1].split("h")[-1]
-            cmds.menuItem(label=shtCode,parent="shotsMenu")
+        shtCode = files.split("\\")[-1].split("h")[-1]
+        cmds.menuItem(label=shtCode,parent="shotsMenu")
 
-def selectShader (*n):## define renderable mesh objType to 'geometry' 
-##    for abc in cmds.ls(type = "mesh"):#abc = cmds.ls(sl=1)[0]
-##        #list meshes created by abc file
-##        meshList = cmds.listConnections(abc,type="shadingEngine",p=1,c=1)
-##        input = meshList[::2]
-##        output = meshList[1::2]
-##
-##        
-##        for ind,out in enumerate(output):
-##            shd = out.split(".")[0]
-##            if shd == "initialShadingGroup":
-##                cmds.disconnectAttr(input[ind],out)
-        
+def selectShader (*n):## define renderable mesh objType to 'geometry'     
     validMat=[]
     #SET ATTRIBUTE
     #assetFileName = cmds.file(query=1,sceneName=1).split("/")[-1] DOESN'T WORK ON SOME COMPUTER
@@ -58,16 +67,22 @@ def selectShader (*n):## define renderable mesh objType to 'geometry'
         hairPlugin = 'pfxHair'
     elif queryhairType == 'xgen':
         hairPlugin = 'xgmDescription'
+    elif queryhairType == 'yeti':
+        hairPlugin = 'pgYetiMaya'
     else:
+        hairPlugin = 'None'
         print 'Maya hair and xgen were not used!! '
+        
+    shadingEngine = [q for q in cmds.ls(type = "shadingEngine") if (q != "initialShadingGroup" and q != "initialParticleSE") ]
     
-    for q in cmds.ls(type = "shadingEngine"):
+    for q in shadingEngine:        
+        
         allString = ""
-        if "ShapeID" not in cmds.listAttr(q) and "AssetID" not in cmds.listAttr(q):
+        if "ShapeID" not in cmds.listAttr(q) and "AssetID" not in cmds.listAttr(q):# and q != "initialShadingGroup" and q != "initialParticleSE":
             
             cmds.addAttr(q,longName = "ShapeID",dataType="string", keyable=0)
             cmds.addAttr(q,longName = "AssetID",dataType="string", keyable=0)
-            
+ 
         hairConn = cmds.listConnections(q,type="%s"%hairPlugin)
         listConn = cmds.listConnections(q,type="mesh")
     
@@ -75,6 +90,7 @@ def selectShader (*n):## define renderable mesh objType to 'geometry'
             for hconn in hairConn:
                 if "objType" in cmds.listAttr(hconn):
                     if cmds.getAttr("%s.objType"%hconn) == "hair/fur":
+                        #This currently doesn't do anything since nothing is assigned as "hair/fur"
                         allString += ((hconn.split("|")[-1])+";")
                         validMat.append(q)
         
@@ -116,31 +132,123 @@ def exportShader(*n):#Auto Export selection
         cmds.warning("No valid selections.")
     
     else:
-        cmds.file(shdSavePath+"/"+(assetFileName.replace("rig","shd").replace("model","shd")),f=1,op="v=0;",typ = "mayaAscii",pr=1,es=1)    
+        if cmds.file(q=1,l=1)[0].split(".")[-1] == 'mb':
+            cmds.file(shdSavePath+"/"+(assetFileName.replace("rig","shd").replace("mdl","shd")),f=1,op="v=0;",typ = "mayaBinary",pr=1,es=1)
+        elif cmds.file(q=1,l=1)[0].split(".")[-1] == 'ma':
+            cmds.file(shdSavePath+"/"+(assetFileName.replace("rig","shd").replace("mdl","shd")),f=1,op="v=0;",typ = "mayaASCII",pr=1,es=1)
+        else:
+            print 'THIS IS NOT A MAYA FILE'
 
 def linkAllShader(*n): #no selection needed
-    for abc in cmds.ls("*:*",type = "transform"):#abc = cmds.ls(sl=1)[0]
-        #namespc=cmds.ls("*:*",type = "transform")
-        getNamespace = abc.split(":")[0]        
+
+    meshList = cmds.ls("*:*",type = "mesh")
+    transList = []
+    for mesh in meshList :
+        relatives = cmds.listRelatives(mesh,type = "transform",p=1)
+        if len(relatives) > 0 :
+            transList.append(relatives[0])
+                    
+    for abc in transList:#abc = cmds.ls(sl=1)[0]
+
+        getNamespace = "_".join(abc.split(":")[0].split("_")[:3])
+        #getNamespace = abc.split(":")[0]
+   
         shape = abc.split(":")[-1]
-        
-        if not cmds.objExists( getNamespace+"_grp") and "_cam_" not in getNamespace:
-            cmds.group(name = getNamespace+"_grp",w=1,em=1)
-        
+        rig_grp = getNamespace+"_grp"
+  
+        if not cmds.objExists(rig_grp) and "_cam_" not in getNamespace: #and "_shd" not in getNamespace and "_cfx" not in getNamespace:
+            cmds.group(name = rig_grp,w=1,em=1)
+ 
         #looping shading engine and find matches with the attribute. And assign the material to it.
-        for shd in cmds.ls(type = "shadingEngine"):#shd = "Clear_Glass_SG"
-            if ("ShapeID" not in cmds.listAttr(shd) and "AssetID" not in cmds.listAttr(shd))or shd == "initialShadingGroup" or shd == "initialParticleSE":
+        for shd in cmds.ls(type = "shadingEngine"):
+            if ("ShapeID" not in cmds.listAttr(shd) and "AssetID" not in cmds.listAttr(shd)) or shd == "initialShadingGroup" or shd == "initialParticleSE":
                 continue
             if cmds.getAttr("%s.AssetID"%shd) == None:
                 continue    
-            if (cmds.getAttr("%s.AssetID"%shd) in getNamespace): 
+            if (getNamespace in cmds.getAttr("%s.AssetID"%shd)): 
                 for mat in cmds.getAttr("%s.ShapeID"%shd).split(";"):
-                    if shape == mat:                     
+                    if shape == mat:                
                         #print  "%s assigned to %s"%(abc,shd)
                         cmds.sets(abc,e=1,forceElement=shd)
-                        try:
-                            cmds.parent(abc,getNamespace+"_grp")
-                        except:pass
+                    try:
+                        cmds.parent(abc,rig_grp)
+                    except:
+                        pass
+                    
+def autoBlendShape(*n):
+    queryhairType = cmds.optionMenu("hairTypeMenu", q=1, v=1)
+    nsInfo = cmds.namespaceInfo(lon=1,r=1)
+    namespaceList=[]
+    
+    for a in nsInfo: #get namespace list
+        if a == 'UI' or a == 'shared':
+            continue
+        else:
+            namespaceList.append(a)
+    
+    if queryhairType == 'maya_hair':
+        
+        cfxList = []
+        shdList = []
+        grpList = []
+        for k in namespaceList: #select deformed mesh, then select original mesh and do blend shape
+            for grp in cmds.ls("%s:*_grp"%k,type="transform",l=1):
+                if "hair" in grp.split(":")[0]:
+                    cfxList.append(grp.split("|")[1]) 
+                
+                elif "shd" in grp.split(":")[0]:
+                    shdList.append(grp.split("|")[-1])
+
+                if "grp" in grp:
+                    grpList.append(grp.split("|")[1].split(":")[0])  
+
+        for deformed in set(cfxList):
+            cmds.setAttr("%s.visibility"%deformed,0)
+            for ori in set(shdList):
+                if deformed.split(":")[-1] == ori.split(":")[-1]:
+                    cmds.select(deformed,r=1)
+                    cmds.select(ori,add=1)
+                    cmds.blendShape()
+                    cmds.select(clear=1)  
+                else:
+                    continue
+
+        topLevelGrp = []
+        for ns in namespaceList: #set attribute for blendshape to go to 1
+            if ns in set(grpList):   
+                for blended in cmds.listRelatives("%s:*_grp"%ns,type="transform",f=1,c=1):
+                    if "hair" in blended.split(":")[0]:
+                        topLevelGrp.append(blended.split("|")[1])
+                        if "grp" not in blended.split(":")[-1]:
+                            if cmds.ls(type="blendShape") != None:
+                                for bs in cmds.ls(type="blendShape"):
+                                    cmds.select(blended.split("|")[-1],r=1)
+                                    cmds.select("%s"%bs,af=1)
+                                    for tp in list(set(topLevelGrp)):
+                                        try:
+                                            cmds.setAttr("%s.%s"%(bs,tp.split(":")[-1]),1)
+                                        except:
+                                            pass
+                                    
+        #set attribute for curve attraction
+        mayaHairList = []
+        for ns in namespaceList:
+            for blended in cmds.listRelatives("%s:*"%ns,type="transform",f=1,c=1):
+                if "MayaHairSystem" in blended:
+                    mayaHairList.append(blended.split("|")[-1])
+                                          
+        for mayaHair in mayaHairList:
+            cmds.setAttr("%s.attractionScale[1].attractionScale_Position"%mayaHair,1)
+            cmds.setAttr("%s.attractionScale[1].attractionScale_FloatValue"%mayaHair,1)
+            cmds.setAttr("%s.startCurveAttract"%mayaHair,1)
+            
+    elif queryhairType == 'xgen':
+        print "BlendShape for xgen hair workflow is still under development"
+        pass
+    else:
+        print 'Maya hair and xgen were not used!! '
+        
+
 
 def assignOrder(*n):
     for ind, q in enumerate(cmds.ls(sl=1)):
@@ -164,14 +272,18 @@ def selReorder(*n):
     
 def searchAsset(prompt = 0,search=0):# 0 = Reference , 1 = Import batchAsset()
     queryShtMenu = cmds.optionMenu("shotsMenu", q=1, v=1)
-    if cmds.optionMenu("sceneMenu", q=1, en=1):
+    if cmds.optionMenu("seqMenu", q=1, en=1):
+        querySeqMenu = cmds.optionMenu("seqMenu", q=1, v=1)
         queryScnMenu = cmds.optionMenu("sceneMenu", q=1, v=1)
-        fullSceneList = full_dir+'\\'+'sc'+queryScnMenu
-        
+        fullSeqList = full_dir+'\\'+'sq'+querySeqMenu
+        fullSceneList = fullSeqList+'\\'+'sc'+queryScnMenu
         fullShotList = fullSceneList+'\\'+'sh'+queryShtMenu
 
     else:
-        fullShotList = full_dir+'\\'+'sh'+queryShtMenu
+        queryScnMenu = cmds.optionMenu("sceneMenu", q=1, v=1)
+        fullSceneList = full_dir+'\\'+'sc'+queryScnMenu
+        fullShotList = fullSceneList+'\\'+'sh'+queryShtMenu
+        
     loc=fullShotList
     if prompt ==1 :
         res = cmds.promptDialog(m="Insert Custom Location",db="Confirm",ds="Confirm")
@@ -201,19 +313,17 @@ def batchAsset(*n):
     location = cmds.textScrollList("assetTextScroll",q=1,ann = 1)
     mode = cmds.radioButtonGrp("imRefradio",q=1,sl=1)
     shdSavePath = cmds.workspace(fileRuleEntry = 'shdOut')
-    listShd = os.listdir(shdSavePath)
+    listShd = [i for i in os.listdir(shdSavePath) if i != ".mayaSwatches"]
+    rigPath = cmds.workspace(fn=1)+"\\"+cmds.workspace(fileRuleEntry="templates")+"\\rig"
+    listRig = [j for j in os.listdir(rigPath)]
     shaders=[]
     
     camera = [cam for cam in selectedItem if "_cam_" in cam]
-##    if len(camera)>0:
-##        timeList = camera[0].split(".")[0].split("_")
-##        cmds.playbackOptions(e=1,min=int(timeList[-2]))
-##        cmds.playbackOptions(e=1,max=int(timeList[-1]))
-##        cmds.currentUnit(t=timeList[-3])
           
     if mode == 1 :
         for item in selectedItem:
             splitSelectedItem = item.split(".")[0].split("_rig")[0]
+            nspcRig = splitSelectedItem+"_rig"
             shaders.append(splitSelectedItem)
             extension = item.split(".")[-1]
             assetType = splitSelectedItem.split("_")[1]
@@ -221,15 +331,21 @@ def batchAsset(*n):
             if extension == "mb" or extension == "ma":
                 if assetType == "c":
                     assetPath = rigPath +"\\"+listRig[0]+"\\"+splitSelectedItem
-                    cmds.file(assetPath+"\\"+nspcRig+".ma",reference=1,namespace=nspcRig)
+                    if extension == "ma":
+                        cmds.file(assetPath+"\\"+nspcRig+".ma",reference=1,namespace=nspcRig)
+                    elif extension == "mb":
+                        cmds.file(assetPath+"\\"+nspcRig+".mb",reference=1,namespace=nspcRig)
+                        
                 elif assetType == "p":
                     assetPath = rigPath +"\\"+listRig[1]+"\\"+splitSelectedItem
-                    cmds.file(assetPath+"\\"+nspcRig+".ma",reference=1,namespace=nspcRig)
+                    if extension == "ma":
+                        cmds.file(assetPath+"\\"+nspcRig+".ma",reference=1,namespace=nspcRig)
+                    elif extension == "mb":
+                        cmds.file(assetPath+"\\"+nspcRig+".mb",reference=1,namespace=nspcRig)
                 else:
                     print "naming is wrong, asset not found!"
-            
             cmds.file(location+"/"+item,reference=1,namespace = os.path.splitext(item)[0])
-            
+
         #Link Animation Data and Rig File
         nsInfo = cmds.namespaceInfo(lon=1,r=1)
         namespaceList=[]
@@ -238,33 +354,47 @@ def batchAsset(*n):
                 continue
             else:
                 namespaceList.append(a)
-            
-         animationCurve = cmds.ls(type="animCurve")
-        
+
+        animationCurve = cmds.ls(type="animCurve")
+        animDestList=[]
         if len(animationCurve) != 0:
             for k in namespaceList:            
                 for aniCurve in animationCurve:
                     if("animDest" not in cmds.listAttr(aniCurve)):
                         continue
-                    animDestNS = cmds.getAttr("%s.animDest"%aniCurve).split(":")[0]
+                    animDestNS = cmds.getAttr("%s.animDest"%aniCurve).split(":")[0]           
                     if animDestNS == None:
+                        print "animDestNS None"
                         continue
                     if animDestNS == k:
                         try:
                             cmds.connectAttr(aniCurve+".output",cmds.getAttr("%s.animDest"%aniCurve), f=1)
+                            print "Connected %s to %s"%(aniCurve+".output",aniCurve)
                         except:
+                            print "Something Is Not Connected"
                             pass
+                    else:
+                        print animDestNS,k
+                        print "namespace doesn't match"
                     cmds.select(aniCurve)
                 startFrame = cmds.keyframe(q=1)[0]
                 endFrame = cmds.keyframe(q=1)[-1]
             cmds.playbackOptions(min=startFrame,max=endFrame)
-        
+
+        referenceList=[]
+        for ref in cmds.file(q=1,r=1):
+            filename = ref.split("/")[-1].split(".")[0]
+            if "_shd" in filename:
+                referenceList.append(filename)
+         
         for shd in listShd:
             for shader in shaders:
                 if shd.split(".")[0].split("_shd")[0] in shader and not cmds.namespace(q=1,ex=1):
-                    cmds.file(shdSavePath+"/"+shd,reference=1,namespace = os.path.splitext(shd)[0])
-                    print "referencing %s"%shd
-                    break
+                    if shd.split(".")[0] not in referenceList:
+                        cmds.file(shdSavePath+"/"+shd,reference=1,namespace = os.path.splitext(shd)[0])
+                        print "referencing %s"%shd
+                        break
+
     else:
         for item in selectedItem:
             cmds.file(location+"/"+item,i=1)
@@ -367,7 +497,7 @@ def run():
     cmds.frameLayout("tagFrame",label = "Tag Creation",cll=1,w=299,parent ='fxMainLay' ,cl=True,cc=readjustWindow,ec=readjustWindow,bgc=(.5,0,0))
     cmds.rowColumnLayout('tagColLay',p='tagFrame',co=[(1,"both",5),(2,"both",5)],cw=[(1,300),(2,300)],rowOffset=[(1,"top",5),(4,"top",5)])
     cmds.optionMenu('tagOpMenu',parent = 'tagColLay',label = "Object Type:",w=100,ann = "Assign tag to selected objects.\ngeometry: objects will be render.\neyedart: object just to visible in viewport not render.\npolyHair: hair object for LOD purpose.\ncacheMesh: object to apply cache on it. Mostly for fx dept.\nprop_geometry: just for prop or object to be combine after cacheMesh is created.")#print "\"cmds.optionMenu('tagOpMenu',q=1,v=1)\""
-    menuItemList = ["geometry",'camera',"export_with_shd","hair/fur","ctrl"]
+    menuItemList = ["geometry","sets",'camera',"eyedart","export_with_shd","hair/fur","cacheMesh","prop_geometry","cacheCurve","ctrl"]
     for item in menuItemList:
         cmds.menuItem(label = item,parent = 'tagOpMenu')
     cmds.separator("tagSepA",parent = 'tagColLay',h=10)
@@ -388,17 +518,19 @@ def run():
     cmds.separator('fxWindSperatorE',h=5,p='fxFrame')
     
     cmds.rowColumnLayout("fxMeshLayD",co=[(1,"both",5),(2,"both",5)],cw=[(1,300),(2,300)],rowOffset=[(1,"top",5),(4,"top",5)],parent = 'fxFrame')
-    cmds.rowLayout("fxMeshLayC",nc = 3, co3 = [6,1,5],cw3=(80,80,100),ct3=('left','both','right'),parent = 'fxFrame')
+    #cmds.rowLayout("fxMeshLayC",nc = 3, co3 = [4,1,4],cw3=(93,93,95),ct3=('left','both','right'),parent = 'fxFrame')
+    cmds.rowLayout("fxMeshLayC",nc = 3, cw2=(140,140),cl2=('left','right'),parent = 'fxFrame')
+    cmds.rowLayout("fxMeshLayE",nc = 3, cw2=(140,140),cl2=('left','right'),parent = 'fxFrame')
     
     cmds.optionMenu('hairTypeMenu',parent='fxMeshLayD',label = "Hair/Fur Type :", w=100, ann = "Choose which plug-in was used to groom the hair/fur. xgm for xgen, pfxHair for Maya Hair.")
-    hairItemList = ["maya_hair","xgen","none"]
+    hairItemList = ["none","maya_hair","xgen","yeti"]
     for hair in hairItemList:
         cmds.menuItem(label = hair, parent = 'hairTypeMenu')
         
-    cmds.button("selectShdBt",h=36, w = 80 ,parent = 'fxMeshLayC',label = "Select Shader",ann = 'Assign \"geometry\" tag to renderable mesh before export the shading network.',c=selectShader)      
-    cmds.button("autoExportBt",h=36,w = 80,parent='fxMeshLayC', label = 'Auto Export', ann = 'Assign \"geometry\" tag to renderable mesh before export the shading network.',c=exportShader)
-    cmds.button("linkShdBt", w = 120 ,parent = 'fxMeshLayC',label = "Link Shading Groups \nTo Mesh",ann = 'Import Shading Group first before use this function.',c=linkAllShader)
-    #cmds.button("linkShdBt",q=1,h=1)
+    cmds.button("selectShdBt",h=36, w=149, parent = 'fxMeshLayC', label = "Select Shader", ann = 'Select shading engines that has connections.', c=selectShader)      
+    cmds.button("autoExportBt",h=36, w=145, parent='fxMeshLayC', label = 'Auto Export \nShader', ann = 'Export selected shading groups with anything else that has tag "export_with_shd".', c=exportShader)
+    cmds.button("linkShdBt", w=149, parent = 'fxMeshLayE', label = "Link Shading \nGroups To Mesh",ann = 'Link Shading Groups to Renderable Mesh.', c=linkAllShader)
+    cmds.button("autoBlendShapeBt", h=36, w=145, parent = "fxMeshLayE", label = "Auto BlendShape", ann = 'Automatically performs blendshape action onto matching object names.', c=autoBlendShape)
 
     cmds.separator('fxWindSperatorB',h=10,p='fxMainLay')
 
@@ -410,24 +542,25 @@ def run():
 
     cmds.frameLayout("importRefFrame",label = "Batch Import/Reference Asset",cll=1,w=299,parent ='fxMainLay' ,cl=True,cc=readjustWindow,ec=readjustWindow,bgc=(0,.5,.5))#cmds.frameLayout("rmanFrame",q=1,h=1)
     cmds.textFieldGrp("importSearchBar",parent = 'importRefFrame',label = "Search: ",ad2=1,cc='searchAsset(prompt=0,search=1)')
-
-    cmds.optionMenu("sceneMenu", parent='importRefFrame' ,label='Scene: ',cc=shotMenu)
+    
+    cmds.optionMenu("seqMenu", parent='importRefFrame',label='Sequence: ', cc = sceneMenu)
+    cmds.optionMenu("sceneMenu", parent='importRefFrame' ,label='Scene: ',cc = shotMenu)
     cmds.optionMenu("shotsMenu",parent='importRefFrame',label='Shots: ',cc = searchAsset)
 
     cmds.textScrollList("assetTextScroll",parent = 'importRefFrame',ams=1,h=300)
     #cmds.button("imRefBt",parent = 'importRefFrame',label = "General Location",c = searchAsset)
-    cmds.button("speciLocBt",parent = 'importRefFrame',label = "Specific Location",c = 'searchAsset(prompt=1)')
-    cmds.radioButtonGrp("imRefradio",parent = 'importRefFrame',label = "Action Type:",nrb=2,la2=["Reference","Import"],cw3=[80,100,100],sl=1)
+    cmds.button("speciLocBt", en=0,parent = 'importRefFrame',label = "Specific Location",c = 'searchAsset(prompt=1)')
+    cmds.radioButtonGrp("imRefradio",en2=0,parent = 'importRefFrame',label = "Action Type:",nrb=2,la2=["Reference","Import"],cw3=[80,100,100],sl=1)
     cmds.button("bringBt",parent = 'importRefFrame',label = "Bring Them In!",c = batchAsset)
 
     cmds.separator('fxWindSperatorD',h=10,p='fxMainLay')
 
-
-    if len(scnList) == 0 :
-        cmds.optionMenu("sceneMenu",e=1,en=0)    
+    if len(sqList) == 0 :
+        cmds.optionMenu("seqMenu",e=1,en=0)
     else:
-        sceneMenu(1)
-
+        seqMenu(1)
+    
+    sceneMenu(1)
     shotMenu(1)
     searchAsset()
 
