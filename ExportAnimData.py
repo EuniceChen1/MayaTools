@@ -25,34 +25,94 @@ def publishAnim():
     allCam = cmds.ls(type = "camera",l=1)
     defaultCam = ['backShape','bottomShape','leftShape','frontShape', 'perspShape','sideShape', 'topShape']
     allCam = [cam for cam in allCam if cam.split("|")[-1] not in defaultCam]
-
+    animationLayer = cmds.ls(type="animLayer")
+   
     #--------------------------VALIDATION--------------------------------------
     informationRig = ""
     informationCam = ""
     informationText = ""
+    regCamStr = ""
+    animLay = ""
+    regCamList=[]
+
+    if len(animationLayer) > 1: #Ensure all animation layers are merged before publishing
+        for b in animationLayer:
+            animLay += (b+";"+"\n")
+        
+        animLayerBox = QtWidgets.QMessageBox()
+        animLayerBox.setIcon(QtWidgets.QMessageBox.Warning)
+        animLayerBox.setWindowTitle("Alert!")
+        animLayerBox.setText("Validation Error!")
+        animLayerBox.setInformativeText("Publish unsuccessful."+"\n\n"+
+                                        "Multiple animation layers found. Please clean up or merge them."+
+                                        "\n\n"+ animLay)
+        animLayerBox.exec_()   
+        return             
+
+    #Ensure camera is registered before publishing
+    for regCam in allCam:
+        regCamInfo = cmds.listRelatives(regCam,parent =1,type = "transform")[0]
+        if "objType" in cmds.listAttr(regCamInfo):
+            if cmds.getAttr("%s.objType"%regCamInfo) == "camera":
+                regCamList.append(regCamInfo)
+                
+    if len(regCamList) == 0 : #No camera registered error
+        regCamBox = QtWidgets.QMessageBox()
+        regCamBox.setIcon(QtWidgets.QMessageBox.Warning)
+        regCamBox.setWindowTitle("Alert!")
+        regCamBox.setText("Validation Error!")
+        regCamBox.setInformativeText("Publish unsuccessful."+"\n\n"+"No registered camera found.")
+        regCamBox.exec_()   
+        return         
+    
+    elif len(regCamList) != 1:
+        for a in regCamList:
+            regCamStr += (a+";"+"\n")
+
+    else:
+        regCamStr += ""
+
     for q in allNS:
         if "rig" in q:
             i=q.split(":")
             if len(i) >= 2 and "_rig" not in i[0]:
-                informationRig += (q+";"+"\n" )
+                informationRig += (q+";"+"\n")
                 
     if len(allCam) > 1:
         for finalCam in allCam:
             cleanUpCam = finalCam.split("|")[-1]   
-            informationCam += (cleanUpCam+";"+"\n" )
+            informationCam += (cleanUpCam+";"+"\n")
             
     numOfCam = len(allCam)
+    numOfRegCam = len(regCamList)
     
-    if informationRig != "" or informationCam != "":
-        if informationRig != "" and informationCam == "":
-            informationText += ("Please clean up namespace"+"\n"+informationRig)
+    if informationRig != "" or informationCam != "" or regCamStr != "": #if either of these are not empty string, means there's error
+        if informationRig != "" and informationCam == "" and regCamStr == "": #namespace within namespace error
+            informationText += ("Please clean up namespace"+informationRig)
             
-        elif informationCam != "" and informationRig == "":
-            informationText += ("%s Cameras in the Scene"%numOfCam+"\n"+"Please clean up camera"+"\n"+informationCam)
-        
-        elif informationRig != "" and informationCam != "" :
-            informationText += ("Please clean up namespace"+"\n\n"+informationRig+"\n"+"Please clean up camera. ( %s cameras in the scene )"%numOfCam+"\n\n"+informationCam)
-        
+        elif informationRig == "" and informationCam != "" and regCamStr == "": #multiple camera error
+            informationText += ("%s cameras in the Scene"%numOfCam+"\n"+"Please clean up camera"+informationCam)
+            
+        elif informationRig == "" and informationCam == "" and regCamStr != "": #multiple registered cam error
+            informationText += ("%s cameras registered"%numOfRegCam+"\n"+"Please only register 1 camera"+"\n"+regCamStr)
+            
+        elif informationRig != "" and informationCam == "" and regCamStr != "": #namespace and multiple registered cam error
+            informationText += ("Please clean up namespace"+"\n"+informationRig+"\n"+
+                                "Please register only 1 camera. ( %s cameras registerd )"%numOfRegCam+"\n"+regCamStr) 
+                                
+        elif informationRig != "" and informationCam != "" and regCamStr == "": #namespace and multiple cam error
+            informationText += ("Please clean up namespace"+"\n"+informationRig+"\n"+
+                                "Please clean up camera. ( %s cameras in the scene )"%numOfCam+"\n"+informationCam+"\n")
+                                
+        elif informationRig == "" and informationCam != "" and regCamStr != "": #multiple cam error and multiple registered cam error  
+            informationText += ("Please clean up camera. ( %s cameras in the scene )"%numOfCam+"\n"+informationCam+"\n"
+                                "Please register only 1 camera. ( %s cameras registerd )"%numOfRegCam+"\n"+regCamStr)              
+                       
+        elif informationRig != "" and informationCam != "" and regCamStr != "" : #namespace, multiple cam and multiple registered cam error
+            informationText += ("Please clean up namespace"+"\n"+informationRig+"\n"+
+                                "Please clean up camera. ( %s cameras in the scene )"%numOfCam+"\n"+informationCam+"\n"
+                                "Please register only 1 camera. ( %s cameras registerd )"%numOfRegCam+"\n"+regCamStr)
+                                
         msgBox = QtWidgets.QMessageBox()
         msgBox.setIcon(QtWidgets.QMessageBox.Warning)
         msgBox.setWindowTitle("Alert!")
@@ -100,9 +160,11 @@ def publishAnim():
                 
         if len(transformList) == 0:
             continue
+    if len(transformList)>0:
+        cmds.bakeResults(transformList,sm=1,t=(int(cmds.playbackOptions(q=1,min=1)),int(cmds.playbackOptions(q=1,max=1))),sb=1,osr=1,rba=0,dic=1,pok=1,sac=0,ral=0,bol=0,mr=1,cp=0,s=0)
 
-    cmds.bakeResults(transformList,sm=1,t=(int(cmds.playbackOptions(q=1,min=1)),int(cmds.playbackOptions(q=1,max=1))),sb=1,osr=1,rba=0,dic=1,pok=1,sac=0,ral=0,bol=0,mr=1,cp=0,s=0)
-    cmds.delete(pConstraint)
+    if len(pConstraint)>0:
+        cmds.delete(pConstraint)
 
     start = time.time() 
     for i in namespaceList:
